@@ -35,7 +35,9 @@ const masterTicketSchema = new mongoose.Schema({
         createdAt: { type: Date, default: Date.now }
     }],
     citizenRating: { type: Number, default: null, min: 1, max: 5 },
-    citizenFeedback: { type: String, default: '' }
+    citizenFeedback: { type: String, default: '' },
+    reComplaintFeedback: { type: String, default: '' },
+    reComplaintCount: { type: Number, default: 0 }
 }, { timestamps: true });
 
 

@@ -4,17 +4,18 @@ import { useAuth } from "../contexts/AuthContext";
 import toast from "react-hot-toast";
 
 export default function Login() {
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
+    const [phone, setPhone] = useState("");
+    const [pin, setPin] = useState("");
     const [loading, setLoading] = useState(false);
     const { login } = useAuth();
     const navigate = useNavigate();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!/^\d{6}$/.test(pin)) return toast.error("PIN must be exactly 6 digits");
         setLoading(true);
         try {
-            await login(email, password);
+            await login(phone, pin);
             toast.success("Welcome back!");
             navigate("/");
         } catch (err) {
@@ -37,7 +38,7 @@ export default function Login() {
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
                 <div style={{ width: "100%", maxWidth: 440 }}>
                     <div style={{ textAlign: "center", marginBottom: 32 }}>
-                        <h1 style={{ fontSize: 28, fontWeight: 800, color: "#1e3a8a", marginBottom: 8 }}>Citizen Login</h1>
+                        <h1 style={{ fontSize: 28, fontWeight: 800, color: "#1e3a8a", marginBottom: 8 }}>Login</h1>
                         <p style={{ color: "#64748b", fontSize: 14 }}>Sign in to access your CivicSync dashboard</p>
                     </div>
 
@@ -47,18 +48,19 @@ export default function Login() {
                         padding: 32, boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
                     }}>
                         <div style={{ marginBottom: 20 }}>
-                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Email Address</label>
+                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Phone Number</label>
                             <input
-                                type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                                className="input-field" placeholder="you@example.com" required
+                                type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
+                                className="input-field" placeholder="+91 9876543210" required
                             />
                         </div>
 
                         <div style={{ marginBottom: 24 }}>
-                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Password</label>
+                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>6-Digit PIN</label>
                             <input
-                                type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-                                className="input-field" placeholder="Enter your password" required
+                                type="password" value={pin} onChange={(e) => setPin(e.target.value)}
+                                className="input-field" placeholder="Enter your 6-digit PIN"
+                                maxLength={6} inputMode="numeric" pattern="\d{6}" required
                             />
                         </div>
 

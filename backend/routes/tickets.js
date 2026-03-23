@@ -363,6 +363,40 @@ router.post('/master/:id/upvote', protect, authorize('user'), async (req, res) =
     }
 });
 
+// ─── PUT /api/tickets/master/:id/recomplaint ─── Citizen re-opens resolved ticket
+router.put('/master/:id/recomplaint', protect, authorize('user', 'admin'), async (req, res) => {
+    try {
+        const ticket = await MasterTicket.findById(req.params.id);
+        if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+
+        if (req.user.role !== 'admin') {
+            const hasComplaint = await RawComplaint.exists({
+                userId: req.user._id,
+                masterTicketId: ticket._id
+            });
+            if (!hasComplaint) {
+                return res.status(403).json({ message: 'You can only re-complain on tickets linked to your complaints' });
+            }
+        }
+
+        const { feedback } = req.body;
+        if (!feedback || !feedback.trim()) {
+            return res.status(400).json({ message: 'Feedback is required for re-complaint' });
+        }
+
+        ticket.status = 'Disputed';
+        ticket.reComplaintFeedback = feedback.trim();
+        ticket.reComplaintCount = (ticket.reComplaintCount || 0) + 1;
+        ticket.progressPercent = 0;
+
+        await ticket.save();
+        res.json(formatTicket(ticket));
+    } catch (err) {
+        console.error('[Re-complaint Error]', err);
+        res.status(500).json({ message: err.message });
+    }
+});
+
 // ─── GET /api/tickets/stats ─── Dashboard stats (admin)
 router.get('/stats', protect, authorize('admin'), async (req, res) => {
     try {

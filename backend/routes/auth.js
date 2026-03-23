@@ -9,25 +9,31 @@ const generateToken = (id) => {
 };
 
 // @route   POST /api/auth/register
-// @desc    Register a new user
+// @desc    Register a new user with phone + 6-digit PIN
 router.post('/register', async (req, res) => {
     try {
-        const { name, email, password, phone, role, department, city } = req.body;
+        const { name, phone, pin, email, role, department, city } = req.body;
 
-        if (!name || !email || !password) {
-            return res.status(400).json({ message: 'Please provide name, email, and password' });
+        if (!name || !phone || !pin) {
+            return res.status(400).json({ message: 'Please provide name, phone number, and 6-digit PIN' });
         }
 
-        const userExists = await User.findOne({ email: email.toLowerCase() });
+        if (!/^\d{6}$/.test(pin)) {
+            return res.status(400).json({ message: 'PIN must be exactly 6 digits' });
+        }
+
+        const normalizedPhone = phone.replace(/\s+/g, '').trim();
+
+        const userExists = await User.findOne({ phone: normalizedPhone });
         if (userExists) {
-            return res.status(400).json({ message: 'An account with this email already exists' });
+            return res.status(400).json({ message: 'An account with this phone number already exists' });
         }
 
         const user = await User.create({
             name: name.trim(),
-            email: email.toLowerCase().trim(),
-            password,
-            phone: phone || '',
+            phone: normalizedPhone,
+            email: email ? email.toLowerCase().trim() : null,
+            password: pin,
             city: city || '',
             role: role || 'user',
             department: (role === 'engineer' || role === 'admin') ? department : null
@@ -38,11 +44,11 @@ router.post('/register', async (req, res) => {
         res.status(201).json({
             _id: user._id,
             name: user.name,
+            phone: user.phone,
             email: user.email,
             role: user.role,
             department: user.department,
             city: user.city,
-            phone: user.phone,
             trustScore: user.trustScore,
             active: user.active,
             token
@@ -50,30 +56,36 @@ router.post('/register', async (req, res) => {
     } catch (error) {
         console.error('[Auth Register Error]', error);
         if (error.code === 11000) {
-            return res.status(400).json({ message: 'An account with this email already exists' });
+            const field = Object.keys(error.keyPattern || {})[0] || 'phone';
+            const msg = field === 'email'
+                ? 'An account with this email already exists'
+                : 'An account with this phone number already exists';
+            return res.status(400).json({ message: msg });
         }
         res.status(500).json({ message: error.message || 'Server error during registration' });
     }
 });
 
 // @route   POST /api/auth/login
-// @desc    Authenticate user & return token
+// @desc    Authenticate user with phone + PIN & return token
 router.post('/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { phone, pin } = req.body;
 
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Please provide email and password' });
+        if (!phone || !pin) {
+            return res.status(400).json({ message: 'Please provide phone number and PIN' });
         }
 
-        const user = await User.findOne({ email: email.toLowerCase() });
+        const normalizedPhone = phone.replace(/\s+/g, '').trim();
+
+        const user = await User.findOne({ phone: normalizedPhone });
         if (!user) {
-            return res.status(401).json({ message: 'Invalid email or password' });
+            return res.status(401).json({ message: 'Invalid phone number or PIN' });
         }
 
-        const isMatch = await user.matchPassword(password);
+        const isMatch = await user.matchPassword(pin);
         if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid email or password' });
+            return res.status(401).json({ message: 'Invalid phone number or PIN' });
         }
 
         if (!user.active) {
@@ -85,11 +97,11 @@ router.post('/login', async (req, res) => {
         res.json({
             _id: user._id,
             name: user.name,
+            phone: user.phone,
             email: user.email,
             role: user.role,
             department: user.department,
             city: user.city,
-            phone: user.phone,
             trustScore: user.trustScore,
             active: user.active,
             token

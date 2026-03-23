@@ -232,9 +232,54 @@ app.use((err, req, res, _next) => {
     res.status(500).json({ message: 'Internal server error' });
 });
 
+// ── One-time migration: fix old users with empty phone & stale email index ──
+async function runMigrations() {
+    const User = require('./models/User');
+    const collection = User.collection;
+
+    // 1. Drop the old email_1 unique index if it exists (email is now optional)
+    try {
+        const indexes = await collection.indexes();
+        const emailIndex = indexes.find(i => i.name === 'email_1');
+        if (emailIndex) {
+            await collection.dropIndex('email_1');
+            console.log('[Migration] Dropped stale email_1 unique index');
+        }
+    } catch (e) {
+        // Index may not exist, that's fine
+    }
+
+    // 2. Assign unique placeholder phones to old users who lack one
+    try {
+        const usersWithNoPhone = await User.find({
+            $or: [{ phone: '' }, { phone: null }, { phone: { $exists: false } }]
+        });
+        for (const u of usersWithNoPhone) {
+            const placeholder = `LEGACY_${u._id.toString().slice(-8)}`;
+            u.phone = placeholder;
+            await u.save({ validateBeforeSave: false });
+            console.log(`[Migration] Assigned placeholder phone "${placeholder}" to user ${u.name} (${u._id})`);
+        }
+        if (usersWithNoPhone.length > 0) {
+            console.log(`[Migration] Fixed ${usersWithNoPhone.length} users with missing phone`);
+        }
+    } catch (e) {
+        console.error('[Migration] Error fixing empty phones:', e.message);
+    }
+
+    // 3. Ensure correct indexes exist
+    try {
+        await collection.createIndex({ phone: 1 }, { unique: true });
+        console.log('[Migration] Ensured phone unique index');
+    } catch (e) {
+        // Index already exists
+    }
+}
+
 // Connect DB then start server
 const PORT = process.env.PORT || 5000;
-connectDB().then(() => {
+connectDB().then(async () => {
+    await runMigrations();
     app.listen(PORT, () => {
         console.log(`\n✅ [CivicSync] Server running on http://localhost:${PORT}`);
         console.log(`📊 [API Routes]`);

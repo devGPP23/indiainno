@@ -6,8 +6,8 @@ import toast from "react-hot-toast";
 
 export default function Register() {
     const [form, setForm] = useState({
-        name: "", email: "", password: "", confirmPassword: "",
-        phone: "", city: "", role: "user", department: ""
+        name: "", phone: "", pin: "", confirmPin: "",
+        email: "", city: "", role: "user", department: ""
     });
     const [loading, setLoading] = useState(false);
     const { register } = useAuth();
@@ -17,15 +17,15 @@ export default function Register() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (form.password !== form.confirmPassword) return toast.error("Passwords don't match");
-        if (form.password.length < 6) return toast.error("Password must be at least 6 characters");
+        if (!/^\d{6}$/.test(form.pin)) return toast.error("PIN must be exactly 6 digits");
+        if (form.pin !== form.confirmPin) return toast.error("PINs don't match");
         setLoading(true);
         try {
             await register({
                 name: form.name,
-                email: form.email,
-                password: form.password,
                 phone: form.phone,
+                pin: form.pin,
+                email: form.email || undefined,
                 city: form.city,
                 role: form.role,
                 department: form.department || null
@@ -93,23 +93,21 @@ export default function Register() {
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Email</label>
-                            <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field" placeholder="you@example.com" required />
+                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Phone Number <span style={{ color: "#ef4444" }}>*</span></label>
+                            <input name="phone" type="tel" value={form.phone} onChange={handleChange} className="input-field" placeholder="+91 9876543210" required />
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Email <span style={{ color: "#94a3b8", fontWeight: 400 }}>(optional)</span></label>
+                            <input name="email" type="email" value={form.email} onChange={handleChange} className="input-field" placeholder="you@example.com" />
                         </div>
 
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                             <div>
-                                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Phone Number</label>
-                                <input name="phone" type="tel" value={form.phone} onChange={handleChange} className="input-field" placeholder="+91 9876543210" />
-                            </div>
-                            <div>
                                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>City</label>
                                 <input name="city" type="text" value={form.city} onChange={handleChange} className="input-field" placeholder="e.g. Jaipur" required />
                             </div>
-                        </div>
-
-                        {(form.role === "engineer" || form.role === "admin") && (
-                            <div style={{ marginBottom: 16 }}>
+                            <div style={{ display: (form.role === "engineer" || form.role === "admin") ? "block" : "none" }}>
                                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Department</label>
                                 <select name="department" value={form.department} onChange={handleChange} className="input-field">
                                     <option value="">Select Department</option>
@@ -118,16 +116,16 @@ export default function Register() {
                                     ))}
                                 </select>
                             </div>
-                        )}
+                        </div>
 
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
                             <div>
-                                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Password</label>
-                                <input name="password" type="password" value={form.password} onChange={handleChange} className="input-field" placeholder="6+ characters" required />
+                                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>6-Digit PIN</label>
+                                <input name="pin" type="password" value={form.pin} onChange={handleChange} className="input-field" placeholder="e.g. 123456" maxLength={6} inputMode="numeric" pattern="\d{6}" required />
                             </div>
                             <div>
-                                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Confirm</label>
-                                <input name="confirmPassword" type="password" value={form.confirmPassword} onChange={handleChange} className="input-field" placeholder="Re-enter" required />
+                                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 6 }}>Confirm PIN</label>
+                                <input name="confirmPin" type="password" value={form.confirmPin} onChange={handleChange} className="input-field" placeholder="Re-enter PIN" maxLength={6} inputMode="numeric" pattern="\d{6}" required />
                             </div>
                         </div>
 
