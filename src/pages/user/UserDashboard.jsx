@@ -2,14 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import DashboardLayout from "../../components/DashboardLayout";
 import api from "../../utils/api";
-import axios from "axios";
 import toast from "react-hot-toast";
 import { HiOutlinePlus, HiOutlineClipboardList, HiOutlineClock, HiOutlineCheckCircle, HiOutlinePhone } from "react-icons/hi";
 import { useAuth } from "../../contexts/AuthContext";
-
-const VOICE_BACKEND_ORIGIN =
-    import.meta.env.VITE_BACKEND_ORIGIN ||
-    "https://photomechanically-unmustered-sharyn.ngrok-free.dev";
 
 export default function UserDashboard() {
     const { userProfile } = useAuth();
@@ -63,11 +58,7 @@ export default function UserDashboard() {
                 return;
             }
 
-            const { data } = await axios.post(
-                `${VOICE_BACKEND_ORIGIN}/initiate-call`,
-                { number: userPhone },
-                { timeout: 20000 }
-            );
+            const { data } = await api.post('/voice/call-me', {}, { timeout: 20000 });
             toast.success(data.message || "Call initiated! Your phone will ring shortly.", { duration: 6000, icon: '📞' });
         } catch (err) {
             const msg =

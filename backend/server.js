@@ -5,7 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/db');
 
-dotenv.config();
+// Load env from root and backend so credentials work regardless of start directory.
+dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
+dotenv.config({ path: path.resolve(__dirname, '.env'), override: true });
 
 // ── Global crash protection ──
 process.on('uncaughtException', (err) => {
@@ -22,16 +24,10 @@ if (process.env.WEBHOOK_BASE_URL) {
     console.log(`🔗 WEBHOOK_BASE_URL: ${process.env.WEBHOOK_BASE_URL}`);
 }
 
-const {
-    initiateCall,
-    getCallDetails,
-    pollForRecording,
-    processInboundRecording,
-    transcribeRecordingUrl,
-    getDigitalDemocracyReply,
-    synthesizeSpeech,
-    saveResponseAudio
-} = require('./services/exotelService');
+// Unified telephony adapter — auto-detects Exotel or Twilio
+const telephonyAdapter = require('./services/telephonyAdapter');
+// Full Exotel pipeline (call mgmt + STT + AI + TTS) — consolidated from old exotelService.js
+const exotelService = require('./services/exotel');
 
 // Ensure public/responses directory exists before any request can hit us
 const responsesDir = path.join(__dirname, 'public', 'responses');
@@ -85,13 +81,15 @@ app.get('/', (req, res) => {
 // Config endpoint to fetch public settings without hardcoding
 app.get('/api/config', (req, res) => {
     res.json({
-        helplineNumber: process.env.EXOTEL_PHONE_NUMBER || process.env.TWILIO_PHONE_NUMBER || "Not Configured",
-        exotelNumber: process.env.EXOTEL_PHONE_NUMBER || "Not Configured",
-        webhookBase: process.env.WEBHOOK_BASE_URL || "http://localhost:5000"
+        helplineNumber: telephonyAdapter.getHelplineNumber(),
+        activeProvider: telephonyAdapter.getActiveProvider(),
+        exotelNumber: process.env.EXOTEL_PHONE_NUMBER || 'Not Configured',
+        webhookBase: process.env.WEBHOOK_BASE_URL || 'http://localhost:5000'
     });
 });
 
-// Outbound call trigger for frontend button
+// ── Backward-compatible /initiate-call alias ──
+// Frontend may call POST /initiate-call directly; forward to exotel service.
 app.post('/initiate-call', async (req, res) => {
     try {
         const userPhoneNumber = req.body?.number;
@@ -99,7 +97,7 @@ app.post('/initiate-call', async (req, res) => {
             return res.status(400).json({ message: 'Phone number is required in body as { number }' });
         }
 
-        const call = await initiateCall(userPhoneNumber);
+        const call = await exotelService.initiateCall(userPhoneNumber);
         return res.json({
             success: true,
             message: 'Call initiated successfully',
@@ -109,102 +107,14 @@ app.post('/initiate-call', async (req, res) => {
             url: call.url
         });
     } catch (error) {
-        const exotelMessage =
-            error?.response?.data?.RestException?.Message ||
-            error?.response?.data?.message ||
-            error.message;
+        const msg = error?.response?.data?.RestException?.Message ||
+            error?.response?.data?.message || error.message;
         console.error('[Exotel Initiate Call Error]', error?.response?.data || error.message);
         return res.status(500).json({
             success: false,
-            message: exotelMessage || 'Failed to initiate call',
+            message: msg || 'Failed to initiate call',
             detail: error?.response?.data || error.message
         });
-    }
-});
-
-// In-memory set to prevent duplicate processing for the same call
-const processedCalls = new Set();
-
-// ──────────────────────────────────────────────────────────────
-// ROUTE: /incoming-handler — ExoML Webhook
-// ──────────────────────────────────────────────────────────────
-app.all('/incoming-handler', (req, res) => {
-    const callSid = req.query?.CallSid || req.body?.CallSid;
-    const callFrom = req.query?.CallFrom || req.body?.CallFrom || req.query?.From || req.body?.From;
-    const callTo = req.query?.CallTo || req.body?.CallTo || req.query?.To || req.body?.To;
-
-    console.log('\n\n===================================');
-    console.log('📞 INCOMING CALL (ExoML)');
-    console.log('===================================');
-
-    // Build the recording callback URL
-    const baseUrl = process.env.WEBHOOK_BASE_URL || 'http://localhost:5000';
-    const recordingDoneUrl = `${baseUrl}/recording-done`;
-
-    const exoml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say>Namaste! CivicSync mein aapka swagat hai. Kripya beep ke baad apni shikayat batayen. Samaapt karne ke liye hash dabayen.</Say>
-    <Record action="${recordingDoneUrl}" method="POST" maxLength="120" finishOnKey="#" playBeep="true" />
-    <Say>Dhanyawad! Aapki shikayat darj ho gayi hai. Hum jald se jald samaadhaan karenge.</Say>
-</Response>`;
-
-    res.set('Content-Type', 'text/xml');
-    res.status(200).send(exoml);
-});
-
-// ──────────────────────────────────────────────────────────────
-// ROUTE: /recording-done — ExoML Record action callback
-// ──────────────────────────────────────────────────────────────
-app.all('/recording-done', (req, res) => {
-    const callSid = req.query?.CallSid || req.body?.CallSid;
-    const callFrom = req.query?.CallFrom || req.body?.CallFrom || req.query?.From || req.body?.From;
-    const recordingUrl = req.query?.RecordingUrl || req.body?.RecordingUrl;
-
-    const exoml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say>Dhanyawad! Aapki shikayat darj ho gayi hai. Hum jald se jald samaadhaan karenge.</Say>
-    <Hangup />
-</Response>`;
-
-    res.set('Content-Type', 'text/xml');
-    res.status(200).send(exoml);
-
-    if (recordingUrl && callSid && !processedCalls.has(callSid)) {
-        processedCalls.add(callSid);
-        const callerPhone = callFrom || 'unknown';
-
-        (async () => {
-            try {
-                console.log(`\n🔄 [REC-DONE] Processing recording for ${callerPhone}...`);
-                const result = await processInboundRecording(recordingUrl, callerPhone);
-                console.log(`✅ [REC-DONE] Ticket created: ${result.ticketNumber}`);
-            } catch (err) {
-                console.error(`❌ [REC-DONE] Failed:`, err.message);
-            } finally {
-                setTimeout(() => processedCalls.delete(callSid), 10 * 60 * 1000);
-            }
-        })();
-    }
-});
-
-app.all('/call-status-callback', (req, res) => {
-    const callSid = req.query?.CallSid || req.body?.CallSid;
-    const callFrom = req.query?.CallFrom || req.body?.CallFrom || req.query?.From || req.body?.From;
-    const recordingUrl = req.query?.RecordingUrl || req.body?.RecordingUrl;
-
-    res.status(200).json({ status: 'received' });
-
-    if (recordingUrl && callSid && !processedCalls.has(callSid)) {
-        processedCalls.add(callSid);
-        (async () => {
-            try {
-                await processInboundRecording(recordingUrl, callFrom || 'unknown');
-            } catch (err) {
-                console.error(`❌ [STATUS-CB] Failed:`, err.message);
-            } finally {
-                setTimeout(() => processedCalls.delete(callSid), 10 * 60 * 1000);
-            }
-        })();
     }
 });
 
@@ -293,14 +203,13 @@ connectDB().then(async () => {
         console.log(`   GET  /api/users`);
         console.log(`   PUT  /api/users/:id`);
         console.log(`📞 [Voice Endpoints]`);
-        console.log(`   POST /api/voice/call-me             → Outbound via Twilio`);
-        console.log(`   POST /api/voice/exotel-incoming      → Exotel inbound → Twilio bridge`);
-        console.log(`   POST /api/voice/incoming             → Direct IVR (language select + record)`);
-        console.log(`   POST /api/voice/language-selected    → Language choice handler`);
-        console.log(`   POST /api/voice/recording-complete   → STT → AI → DB pipeline`);
-        console.log(`   POST /api/voice/test-pipeline        → Test pipeline manually`);
-        console.log(`   GET  /api/voice/status               → Service health check`);
-        console.log(`🔗 [Webhook Base] ${process.env.WEBHOOK_BASE_URL || 'http://localhost:5000'}`);
-        console.log(`☎️  [Exotel Number] ${process.env.EXOTEL_PHONE_NUMBER || 'Not configured'}\n`);
+        console.log(`   POST /api/voice/call-me             → Outbound call`);
+        console.log(`   POST /api/voice/incoming             → IVR entry`);
+        console.log(`   POST /api/voice/recording-complete   → STT → AI → DB`);
+        console.log(`   POST /api/voice/test-pipeline        → Test pipeline`);
+        console.log(`   GET  /api/voice/status               → Service health`);
+        console.log(`📡 [Provider] ${telephonyAdapter.getActiveProvider() || 'None configured'}`);
+        console.log(`☎️  [Helpline] ${telephonyAdapter.getHelplineNumber()}`);
+        console.log(`🔗 [Webhook]  ${process.env.WEBHOOK_BASE_URL || 'http://localhost:5000'}\n`);
     });
 });

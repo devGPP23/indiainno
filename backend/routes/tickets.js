@@ -130,6 +130,8 @@ router.get('/my-complaints', protect, async (req, res) => {
             .sort({ createdAt: -1 })
             .lean()
             .maxTimeMS(10000);
+        
+        console.log(`[MyComplaints] User ${req.user._id}: found ${complaints.length} total complaints | sources: ${[...new Set(complaints.map(c=>c.source))].join(', ')}`);
 
         const ticketIds = [...new Set(
             complaints

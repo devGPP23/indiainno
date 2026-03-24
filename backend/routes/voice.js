@@ -12,10 +12,56 @@ try {
     console.warn('[Voice] AI service not available:', e.message);
 }
 
+const twilioService = require('../services/twilio');
+const exotelService = require('../services/exotel');
+const telephonyAdapter = require('../services/telephonyAdapter');
+
 // ── In-memory mapping: phone/CallSid → userId (links calls to logged-in citizens) ──
 const callUserMap = {};
 
 const WEBHOOK_BASE = process.env.WEBHOOK_BASE_URL || 'http://localhost:5000';
+
+// Use the adapter's isExotelConfigured instead of duplicating the check
+const isExotelConfigured = telephonyAdapter.isExotelConfigured;
+
+function getConfiguredProviderMode() {
+    return (process.env.VOICE_OUTBOUND_PROVIDER || 'auto').toLowerCase();
+}
+
+function getOutboundProvider() {
+    const mode = getConfiguredProviderMode();
+    if (mode === 'twilio') return twilioService.isTwilioConfigured() ? 'twilio' : null;
+    if (mode === 'exotel') return isExotelConfigured() ? 'exotel' : null;
+
+    if (twilioService.isTwilioConfigured()) return 'twilio';
+    if (isExotelConfigured()) return 'exotel';
+    return null;
+}
+
+function useExotelDirectInbound() {
+    const mode = (process.env.EXOTEL_INBOUND_MODE || '').toLowerCase();
+    return mode === 'direct' || getConfiguredProviderMode() === 'exotel';
+}
+
+function buildLanguageMenuXml() {
+    const languageMenuUrl = `${WEBHOOK_BASE}/api/voice/language-selected`;
+    return xmlResponse(`
+    <Say voice="Polly.Aditi">Welcome to Civic Sync, the Government Grievance Redressal System.</Say>
+    <Gather numDigits="1" action="${languageMenuUrl}" method="POST" timeout="8">
+        <Say voice="Polly.Aditi">Please select your language.</Say>
+        <Say voice="Polly.Aditi">Press 1 for Hindi.</Say>
+        <Say voice="Polly.Aditi">Press 2 for English.</Say>
+        <Say voice="Polly.Aditi">Press 3 for Marathi.</Say>
+        <Say voice="Polly.Aditi">Press 4 for Tamil.</Say>
+        <Say voice="Polly.Aditi">Press 5 for Telugu.</Say>
+        <Say voice="Polly.Aditi">Press 6 for Kannada.</Say>
+        <Say voice="Polly.Aditi">Press 7 for Bengali.</Say>
+    </Gather>
+    <Say voice="Polly.Aditi">No input received. You can speak in any Indian language after the beep. Press the hash key when you are done.</Say>
+    <Record maxLength="120" playBeep="true" action="${WEBHOOK_BASE}/api/voice/recording-complete" finishOnKey="#" trim="trim-silence" />
+    <Say voice="Polly.Aditi">We did not receive your recording. Goodbye.</Say>
+    `);
+}
 
 // Helper: Build XML response (works for both Twilio TwiML and Exotel)
 function xmlResponse(innerXml) {
@@ -69,11 +115,53 @@ router.post('/call-me', protect, async (req, res) => {
             source: 'web_contact_authorities'
         };
 
-        console.log(`[Voice] Outbound call request from ${req.user.email} → ${formattedPhone} (via Twilio)`);
+        const outboundProviderMode = getConfiguredProviderMode();
+        const twilioConfigured = twilioService.isTwilioConfigured();
+        const exotelConfigured = isExotelConfigured();
+        const outboundProvider = getOutboundProvider();
+        if (!outboundProvider) {
+            return res.status(500).json({
+                message: 'Calling service is not configured. Add Twilio (recommended for outbound callback) or Exotel credentials in .env.',
+                errorCode: 'CALL_PROVIDER_NOT_CONFIGURED',
+                providers: {
+                    twilio: twilioConfigured,
+                    exotel: exotelConfigured
+                },
+                diagnostics: {
+                    outboundProviderMode,
+                    selectedProvider: outboundProvider,
+                    pid: process.pid
+                }
+            });
+        }
 
-        // Use TWILIO for outbound calls
-        const twilioService = require('../services/twilio');
-        const call = await twilioService.makeCall(formattedPhone);
+        console.log(`[Voice] Outbound call request from ${req.user.email} -> ${formattedPhone} (via ${outboundProvider})`);
+
+        let selectedProvider = outboundProvider;
+        let call;
+        try {
+            call = selectedProvider === 'twilio'
+                ? await twilioService.makeCall(formattedPhone)
+                : await exotelService.makeCall(formattedPhone);
+        } catch (primaryErr) {
+            // In auto mode, fall back to the other provider if available
+            if (outboundProviderMode === 'auto') {
+                const fallback = selectedProvider === 'twilio' ? 'exotel' : 'twilio';
+                const fallbackAvailable = fallback === 'exotel' ? exotelConfigured : twilioConfigured;
+
+                if (fallbackAvailable) {
+                    console.warn(`[Voice] ${selectedProvider} outbound failed (${primaryErr.code || primaryErr.message}); retrying with ${fallback}`);
+                    selectedProvider = fallback;
+                    call = fallback === 'twilio'
+                        ? await twilioService.makeCall(formattedPhone)
+                        : await exotelService.makeCall(formattedPhone);
+                } else {
+                    throw primaryErr;
+                }
+            } else {
+                throw primaryErr;
+            }
+        }
 
         // Map CallSid to user as well
         if (call.callSid) {
@@ -84,7 +172,12 @@ router.post('/call-me', protect, async (req, res) => {
             success: true,
             message: `Call initiated! Your phone (${formattedPhone}) will ring shortly.`,
             callSid: call.callSid,
-            provider: 'twilio'
+            provider: selectedProvider,
+            diagnostics: {
+                outboundProviderMode,
+                selectedProvider,
+                pid: process.pid
+            }
         });
 
     } catch (err) {
@@ -94,7 +187,13 @@ router.post('/call-me', protect, async (req, res) => {
         let errorCode = 'CALL_INIT_FAILED';
 
         if (err.code === 'TWILIO_CONFIG_MISSING') {
-            userMessage = 'Calling service is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in backend/.env';
+            userMessage = 'Twilio is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_PHONE_NUMBER in .env (root or backend/.env).';
+            errorCode = err.code;
+        } else if (err.code === 'EXOTEL_CONFIG_MISSING') {
+            userMessage = 'Exotel is not configured. Set EXOTEL_ACCOUNT_SID, EXOTEL_API_KEY, EXOTEL_API_TOKEN, and EXOTEL_PHONE_NUMBER in .env.';
+            errorCode = err.code;
+        } else if (err.code === 'EXOTEL_AUTH_FAILED') {
+            userMessage = 'Exotel authentication failed. Verify EXOTEL_API_KEY and EXOTEL_API_TOKEN.';
             errorCode = err.code;
         } else if (err.code === 20003) {
             userMessage = 'Twilio authentication failed. Check your TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN.';
@@ -113,26 +212,41 @@ router.post('/call-me', protect, async (req, res) => {
         res.status(500).json({
             message: userMessage,
             errorCode,
+            providers: {
+                twilio: twilioService.isTwilioConfigured(),
+                exotel: isExotelConfigured()
+            },
+            diagnostics: {
+                outboundProviderMode: getConfiguredProviderMode(),
+                selectedProvider: getOutboundProvider(),
+                pid: process.pid
+            },
             detail: err.message
         });
     }
 });
 
 // =============================================
-// POST /api/voice/exotel-incoming — INBOUND via EXOTEL
+// POST/GET /api/voice/exotel-incoming — INBOUND via EXOTEL
 // When someone dials the Exotel number (918047360814),
-// Exotel Passthru Applet hits this webhook.
+// Exotel Passthru Applet hits this webhook (GET with query params).
 // We acknowledge and trigger Twilio to call them back.
 // =============================================
-router.post('/exotel-incoming', async (req, res) => {
-    const callSid = req.body.CallSid || req.body.callsid || '';
-    const callerPhone = req.body.CallFrom || req.body.From || req.body.Caller || '';
-    const exotelCallTo = req.body.CallTo || req.body.To || '';
+router.all('/exotel-incoming', async (req, res) => {
+    const params = { ...req.query, ...req.body };
+    const callSid = params.CallSid || params.callsid || '';
+    const callerPhone = params.CallFrom || params.From || params.Caller || '';
+    const exotelCallTo = params.CallTo || params.To || '';
 
     console.log(`[Voice] ☎️ Exotel inbound call — CallSid: ${callSid}, From: ${callerPhone}, To: ${exotelCallTo}`);
     console.log(`[Voice] Exotel full body:`, JSON.stringify(req.body, null, 2));
 
-    // Respond to Exotel immediately — tell user they'll get a callback
+    if (useExotelDirectInbound()) {
+        // Exotel-only path: keep caller in the same call and run IVR directly.
+        return res.type('text/xml').send(buildLanguageMenuXml());
+    }
+
+    // Bridge mode: acknowledge Exotel call and trigger callback provider (Twilio by default).
     const xml = xmlResponse(`
     <Say>Welcome to Civic Sync, Government Grievance Redressal System. You will receive a call back shortly to register your complaint. Please keep your phone ready. Thank you.</Say>
     <Hangup/>
@@ -147,8 +261,12 @@ router.post('/exotel-incoming', async (req, res) => {
                 return;
             }
 
-            const formattedPhone = normalizePhone(callerPhone);
-            console.log(`[Voice] Exotel→Twilio bridge: Normalized phone: ${formattedPhone}`);
+            // Use demo phone for Twilio trial (only verified numbers work)
+            const useDemoPhone = process.env.USE_DEMO_PHONE === 'true';
+            const demoPhone = process.env.DEMO_PHONE_NUMBER;
+            const callerNormalized = normalizePhone(callerPhone);
+            const formattedPhone = (useDemoPhone && demoPhone) ? normalizePhone(demoPhone) : callerNormalized;
+            console.log(`[Voice] Exotel→Twilio bridge: Caller: ${callerNormalized}, Calling: ${formattedPhone}${useDemoPhone ? ' (demo override)' : ''}`);
 
             // Look up user by phone number
             const normalizedDigits = callerPhone.replace(/\D/g, '');
@@ -240,26 +358,7 @@ router.post('/incoming', (req, res) => {
     }
 
     // IVR: Language selection → Record
-    const languageMenuUrl = `${WEBHOOK_BASE}/api/voice/language-selected`;
-
-    const xml = xmlResponse(`
-    <Say voice="Polly.Aditi">Welcome to Civic Sync, the Government Grievance Redressal System.</Say>
-    <Gather numDigits="1" action="${languageMenuUrl}" method="POST" timeout="8">
-        <Say voice="Polly.Aditi">Please select your language.</Say>
-        <Say voice="Polly.Aditi">Press 1 for Hindi.</Say>
-        <Say voice="Polly.Aditi">Press 2 for English.</Say>
-        <Say voice="Polly.Aditi">Press 3 for Marathi.</Say>
-        <Say voice="Polly.Aditi">Press 4 for Tamil.</Say>
-        <Say voice="Polly.Aditi">Press 5 for Telugu.</Say>
-        <Say voice="Polly.Aditi">Press 6 for Kannada.</Say>
-        <Say voice="Polly.Aditi">Press 7 for Bengali.</Say>
-    </Gather>
-    <Say voice="Polly.Aditi">No input received. You can speak in any Indian language after the beep. Press the hash key when you are done.</Say>
-    <Record maxLength="120" playBeep="true" action="${WEBHOOK_BASE}/api/voice/recording-complete" finishOnKey="#" trim="trim-silence" />
-    <Say voice="Polly.Aditi">We did not receive your recording. Goodbye.</Say>
-    `);
-
-    res.type('text/xml').send(xml);
+    res.type('text/xml').send(buildLanguageMenuXml());
 });
 
 // =============================================
@@ -470,27 +569,28 @@ router.post('/call-status', (req, res) => {
 router.get('/status', (req, res) => {
     const hasSarvam = !!process.env.SARVAM_API_KEY;
     const hasGroq = !!process.env.GROQ_API_KEY;
-    const hasExotel = !!(process.env.EXOTEL_ACCOUNT_SID && process.env.EXOTEL_API_KEY);
+    const hasExotel = isExotelConfigured();
 
     // Proper Twilio validation — SID must start with AC, no placeholders
     let hasTwilio = false;
     try {
-        const { isTwilioConfigured } = require('../services/twilio');
-        hasTwilio = isTwilioConfigured();
+        hasTwilio = twilioService.isTwilioConfigured();
     } catch (e) {
         hasTwilio = false;
     }
 
     res.json({
         available: (hasTwilio || hasExotel) && hasSarvam && hasGroq,
+        outboundProviderMode: getConfiguredProviderMode(),
+        exotelInboundMode: useExotelDirectInbound() ? 'direct' : 'bridge',
         twilio: hasTwilio,
-        twilioNote: !hasTwilio ? 'Set real TWILIO_ACCOUNT_SID (starts with AC), TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER in backend/.env' : 'OK',
+        twilioNote: !hasTwilio ? 'Set real TWILIO_ACCOUNT_SID (starts with AC), TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER in .env' : 'OK',
         exotel: hasExotel,
         sarvam: hasSarvam,
         groq: hasGroq,
         webhookBase: WEBHOOK_BASE,
         endpoints: {
-            outbound: 'POST /api/voice/call-me (Twilio)',
+            outbound: 'POST /api/voice/call-me (Twilio preferred, Exotel fallback)',
             exotelInbound: 'POST /api/voice/exotel-incoming (Exotel → Twilio bridge)',
             directInbound: 'POST /api/voice/incoming (Twilio/Exotel IVR)',
             languageSelect: 'POST /api/voice/language-selected',
@@ -498,7 +598,7 @@ router.get('/status', (req, res) => {
         },
         exotelNumber: process.env.EXOTEL_PHONE_NUMBER || 'Not configured',
         message: [
-            !hasTwilio ? 'TWILIO creds missing/invalid (outbound calls won\'t work)' : null,
+            getConfiguredProviderMode() === 'twilio' && !hasTwilio ? 'TWILIO creds missing/invalid (required by VOICE_OUTBOUND_PROVIDER=twilio)' : null,
             !hasExotel ? 'EXOTEL creds missing (inbound calls)' : null,
             !hasSarvam ? 'SARVAM_API_KEY missing' : null,
             !hasGroq ? 'GROQ_API_KEY missing' : null,

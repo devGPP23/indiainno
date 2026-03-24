@@ -20,12 +20,21 @@ async function speechToText(audioUrl) {
         const downloadUrl = (audioUrl && !audioUrl.includes('.')) ? audioUrl + '.wav' : audioUrl;
 
         console.log(`[Sarvam] Downloading audio from: ${downloadUrl}`);
-        const response = await axios({
+
+        // Twilio recordings require Basic Auth (AccountSID:AuthToken)
+        const axiosOpts = {
             method: "get",
             url: downloadUrl,
-            responseType: "arraybuffer", // arraybuffer is more compatible with FormData + Buffer.from
+            responseType: "arraybuffer",
             timeout: 30000,
-        });
+        };
+        if (downloadUrl.includes('api.twilio.com') && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+            axiosOpts.auth = {
+                username: process.env.TWILIO_ACCOUNT_SID,
+                password: process.env.TWILIO_AUTH_TOKEN,
+            };
+        }
+        const response = await axios(axiosOpts);
 
         // 2. Upload to Sarvam
         const form = new FormData();
@@ -33,7 +42,7 @@ async function speechToText(audioUrl) {
             filename: 'recording.wav',
             contentType: 'audio/wav'
         });
-        form.append('model', 'saaras:v2');
+        form.append('model', 'saaras:v2.5');
 
         const sarvamRes = await axios.post('https://api.sarvam.ai/speech-to-text-translate', form, {
             headers: {
@@ -70,7 +79,7 @@ async function speechToTextFromBuffer(audioBuffer, mimeType = 'audio/webm') {
             filename: `recording.${ext}`,
             contentType: mimeType
         });
-        form.append('model', 'saaras:v2');
+        form.append('model', 'saaras:v2.5');
 
         const sarvamRes = await axios.post('https://api.sarvam.ai/speech-to-text-translate', form, {
             headers: {
@@ -97,13 +106,20 @@ async function speechToTextFromBuffer(audioBuffer, mimeType = 'audio/webm') {
  */
 async function classifyComplaint(englishTranscript) {
     const prompt = `
-You are an AI assistant for a civic grievance system in India called CivicSync.
-Analyze this citizen complaint transcript and extract structured data.
+You are an AI classifier for CivicSync, a civic grievance system in India.
+Analyze this citizen complaint and extract structured data.
 
-The "department" MUST be exactly ONE of these IDs:
+RULES (STRICTLY FOLLOW):
+- EVERY field MUST have a non-empty value. NEVER return an empty string for department or intentCategory.
+- If the complaint does not clearly fit a category, use "Other".
+- If the department is unclear, pick the closest match. Default to "municipal" if truly ambiguous.
+- For scams/fraud/cybercrime → department: "police", intentCategory: "Safety_Concern"
+- For medical issues → department: "health"
+
+"department" MUST be exactly ONE of:
 pwd, water_supply, municipal, electricity, transport, health, police, fire, environment, education, revenue, social_welfare, food_civil, urban_dev, telecom, forest
 
-The "intentCategory" MUST be exactly ONE of these:
+"intentCategory" MUST be exactly ONE of:
 Pothole, Road_Damage, Bridge_Issue, Building_Maintenance,
 Water_Leak, No_Water, Sewage_Overflow, Drainage_Block,
 Garbage, Park_Maintenance, Encroachment, Illegal_Construction,
@@ -124,20 +140,20 @@ Other
 
 Transcript: "${englishTranscript}"
 
-Respond strictly with ONLY valid JSON:
+Respond with ONLY valid JSON (no empty values):
 {
-  "intentCategory": "...",
-  "department": "...",
-  "landmark": "any specific location/street/area mentioned, or empty string",
-  "description": "a clean concise 1-2 sentence summary of the complaint in English",
-  "severity": "Low or Medium or High or Critical based on urgency"
+  "intentCategory": "one from the list above (NEVER empty)",
+  "department": "one from the list above (NEVER empty)",
+  "landmark": "location mentioned, or empty string if none",
+  "description": "1-2 sentence English summary",
+  "severity": "Low or Medium or High or Critical"
 }
 `;
 
     try {
         const chatCompletion = await groq.chat.completions.create({
             messages: [{ role: "user", content: prompt }],
-            model: "mixtral-8x7b-32768",
+            model: "llama-3.1-8b-instant",
             temperature: 0,
             response_format: { type: "json_object" }
         });
