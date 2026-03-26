@@ -10,7 +10,6 @@ import UserDashboard from "./pages/user/UserDashboard";
 import SubmitComplaint from "./pages/user/SubmitComplaint";
 import MyComplaints from "./pages/user/MyComplaints";
 import CityMap from "./pages/user/CityMap";
-import Schemes from "./pages/Schemes";
 
 // Junior (replaces engineer)
 import JuniorDashboard from "./pages/junior/JuniorDashboard";
@@ -72,7 +71,6 @@ export default function App() {
       <Route path="/citizen/submit" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><SubmitComplaint /></ProtectedRoute>} />
       <Route path="/citizen/complaints" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><MyComplaints /></ProtectedRoute>} />
       <Route path="/citizen/map" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><CityMap /></ProtectedRoute>} />
-      <Route path="/schemes" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><Schemes /></ProtectedRoute>} />
 
       {/* Junior Routes */}
       <Route path="/junior" element={<ProtectedRoute allowedRoles={["junior", "engineer"]}><JuniorDashboard /></ProtectedRoute>} />
