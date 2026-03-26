@@ -5,49 +5,51 @@ import { HiOutlineMenu, HiOutlineX, HiOutlineLogout } from "react-icons/hi";
 import { useState } from "react";
 
 const NAV_LINKS = {
-  citizen: [
-    { to: "/citizen", label: "Dashboard", icon: "📊" },
-    { to: "/citizen/submit", label: "Submit Complaint", icon: "📝" },
-    { to: "/citizen/complaints", label: "My Complaints", icon: "📋" },
-    { to: "/citizen/map", label: "City Map", icon: "🗺️" },
-  ],
-  user: [
-    { to: "/citizen", label: "Dashboard", icon: "📊" },
-    { to: "/citizen/submit", label: "Submit Complaint", icon: "📝" },
-    { to: "/citizen/complaints", label: "My Complaints", icon: "📋" },
-    { to: "/citizen/map", label: "City Map", icon: "🗺️" },
-  ],
-  junior: [
-    { to: "/junior", label: "Dashboard", icon: "📊" },
-  ],
-  engineer: [
-    { to: "/junior", label: "Dashboard", icon: "📊" },
-  ],
-  dept_head: [
-    { to: "/dept-head", label: "Dashboard", icon: "📊" },
-    { to: "/dept-head/pending", label: "Pending Cases", icon: "⏳" },
-    { to: "/dept-head/sla", label: "SLA Cares", icon: "⚠️" },
-    { to: "/dept-head/juniors", label: "My Juniors", icon: "👷" },
-    { to: "/dept-head/reports", label: "Reports", icon: "📄" },
-    { to: "/dept-head/manual-queue", label: "Manual Queue", icon: "📌" },
-  ],
-  officer: [
-    { to: "/officer", label: "Dashboard", icon: "📊" },
-    { to: "/officer/tickets", label: "Tickets", icon: "🎫" },
-    { to: "/officer/map", label: "Live Map", icon: "🗺️" },
-    { to: "/officer/engineers", label: "Officials", icon: "👷" },
-    { to: "/officer/departments", label: "Departments", icon: "🏛️" },
-    { to: "/officer/manual-queue", label: "Manual Queue", icon: "📌" },
-    { to: "/officer/reports", label: "Reports", icon: "📄" },
-  ],
-  admin: [
-    { to: "/officer", label: "Dashboard", icon: "📊" },
-    { to: "/officer/tickets", label: "Tickets", icon: "🎫" },
-    { to: "/officer/map", label: "Live Map", icon: "🗺️" },
-    { to: "/officer/engineers", label: "Officials", icon: "👷" },
-    { to: "/officer/departments", label: "Departments", icon: "🏛️" },
-    { to: "/officer/manual-queue", label: "Manual Queue", icon: "📌" },
-  ],
+    citizen: [
+        { to: "/citizen", label: "Dashboard", icon: "📊" },
+        { to: "/citizen/submit", label: "Submit Complaint", icon: "📝" },
+        { to: "/citizen/complaints", label: "My Complaints", icon: "📋" },
+        { to: "/citizen/map", label: "City Map", icon: "🗺️" },
+        { to: "/schemes", label: "Govt Schemes", icon: "🏛️" },
+    ],
+    user: [
+        { to: "/citizen", label: "Dashboard", icon: "📊" },
+        { to: "/citizen/submit", label: "Submit Complaint", icon: "📝" },
+        { to: "/citizen/complaints", label: "My Complaints", icon: "📋" },
+        { to: "/citizen/map", label: "City Map", icon: "🗺️" },
+        { to: "/schemes", label: "Govt Schemes", icon: "🏛️" },
+    ],
+    junior: [
+        { to: "/junior", label: "Dashboard", icon: "📊" },
+    ],
+    engineer: [
+        { to: "/junior", label: "Dashboard", icon: "📊" },
+    ],
+    dept_head: [
+        { to: "/dept-head", label: "Dashboard", icon: "📊" },
+        { to: "/dept-head/pending", label: "Pending Cases", icon: "⏳" },
+        { to: "/dept-head/sla", label: "SLA Cares", icon: "⚠️" },
+        { to: "/dept-head/juniors", label: "My Juniors", icon: "👷" },
+        { to: "/dept-head/reports", label: "Reports", icon: "📄" },
+        { to: "/dept-head/manual-queue", label: "Manual Queue", icon: "📌" },
+    ],
+    officer: [
+        { to: "/officer", label: "Dashboard", icon: "📊" },
+        { to: "/officer/tickets", label: "Tickets", icon: "🎫" },
+        { to: "/officer/map", label: "Live Map", icon: "🗺️" },
+        { to: "/officer/engineers", label: "Officials", icon: "👷" },
+        { to: "/officer/departments", label: "Departments", icon: "🏛️" },
+        { to: "/officer/manual-queue", label: "Manual Queue", icon: "📌" },
+        { to: "/officer/reports", label: "Reports", icon: "📄" },
+    ],
+    admin: [
+        { to: "/officer", label: "Dashboard", icon: "📊" },
+        { to: "/officer/tickets", label: "Tickets", icon: "🎫" },
+        { to: "/officer/map", label: "Live Map", icon: "🗺️" },
+        { to: "/officer/engineers", label: "Officials", icon: "👷" },
+        { to: "/officer/departments", label: "Departments", icon: "🏛️" },
+        { to: "/officer/manual-queue", label: "Manual Queue", icon: "📌" },
+    ],
 };
 
 export default function Navbar() {

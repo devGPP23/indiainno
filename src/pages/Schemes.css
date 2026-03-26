@@ -1,0 +1,356 @@
+.schemes-page {
+    min-height: calc(100vh - 68px);
+    background: #ffffff;
+    padding-bottom: 4rem;
+}
+
+/* ─── HEADER ─── */
+.schemes-header {
+    background: #f8f9fa;
+    border-bottom: 1px solid #dddddd;
+    padding: 2rem 2.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.schemes-header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #004B87;
+    margin-bottom: 0.35rem;
+}
+
+.schemes-header p {
+    color: #555555;
+    font-size: 0.95rem;
+    margin-bottom: 0.8rem;
+}
+
+.schemes-header strong {
+    color: #004B87;
+}
+
+.pib-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #e6f0fa;
+    border: 1px solid #b3d4f5;
+    color: #004B87;
+    padding: 0.3rem 0.9rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.refresh-btn {
+    background: #ffffff;
+    border: 1px solid #cccccc;
+    color: #333333;
+    padding: 0.5rem 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.refresh-btn:hover {
+    background: #f1f1f1;
+    color: #004B87;
+}
+
+/* ─── LOADING / ERROR / EMPTY ─── */
+.loading-state,
+.error-state,
+.empty-state {
+    text-align: center;
+    padding: 5rem 2rem;
+    color: #555555;
+}
+
+.spinner {
+    width: 52px;
+    height: 52px;
+    border: 4px solid #e6f0fa;
+    border-top-color: #004B87;
+    border-radius: 50%;
+    animation: spin 0.85s linear infinite;
+    margin: 0 auto 1.2rem;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.error-state {
+    color: #d9534f;
+}
+
+.retry-btn {
+    background: #ffffff;
+    border: 1px solid #d9534f;
+    color: #d9534f;
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+/* ─── SECTOR GRID VIEW ─── */
+.sector-grid-view {
+    padding: 2.5rem 2.5rem;
+}
+
+.sector-hint {
+    text-align: center;
+    color: #666666;
+    font-size: 0.9rem;
+    margin-bottom: 2rem;
+    letter-spacing: 0.3px;
+}
+
+.sector-big-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.5rem;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* ─── BIG SECTOR CARD ─── */
+.sector-big-card {
+    position: relative;
+    border: 1px solid #cccccc;
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 2.2rem 2rem 1.8rem;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.sector-big-card:hover {
+    transform: translateY(-6px) scale(1.01);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05), 0 0 0 1px #004B87;
+}
+
+.sector-big-card:active {
+    transform: scale(0.98);
+}
+
+/* Removed sbc-glow and sbc-emoji styles */
+
+.sbc-label {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #004B87;
+    margin-bottom: 0.6rem;
+    letter-spacing: 0.3px;
+}
+
+.sbc-desc {
+    color: #666666;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    margin-bottom: 1.4rem;
+}
+
+.sbc-count {
+    display: inline-block;
+    background: #f1f1f1;
+    border: 1px solid #cccccc;
+    color: #555555;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    margin-bottom: 1.2rem;
+}
+
+.sbc-arrow {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #004B87;
+    font-size: 0.9rem;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: all 0.25s ease;
+}
+
+.sector-big-card:hover .sbc-arrow {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* ─── DRILLDOWN VIEW ─── */
+.drilldown-view {
+    padding: 2rem 2.5rem;
+}
+
+.drilldown-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #dddddd;
+    flex-wrap: wrap;
+}
+
+.back-btn {
+    background: #ffffff;
+    border: 1px solid #cccccc;
+    color: #333333;
+    padding: 0.5rem 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.back-btn:hover {
+    background: #f1f1f1;
+    color: #004B87;
+    border-color: #004B87;
+}
+
+.drilldown-title {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.drilldown-title h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #004B87;
+    margin-bottom: 0.2rem;
+}
+
+.drilldown-title p {
+    color: #666666;
+    font-size: 0.85rem;
+}
+
+/* ─── SCHEME CARDS GRID ─── */
+.scheme-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.3rem;
+}
+
+/* ─── INDIVIDUAL SCHEME CARD ─── */
+.scheme-card {
+    background: #ffffff;
+    border: 1px solid #cccccc;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.25s ease;
+}
+
+.scheme-card:hover {
+    transform: translateY(-4px);
+    border-color: #004B87;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* Removed sc-top-bar */
+
+.sc-body {
+    padding: 1.4rem 1.5rem;
+}
+
+.sc-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.9rem;
+    flex-wrap: wrap;
+}
+
+.sc-sector-tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #004B87;
+    background: #e6f0fa;
+    padding: 0.25rem 0.7rem;
+    border-radius: 20px;
+    border: 1px solid #b3d4f5;
+}
+
+.sc-date {
+    font-size: 0.75rem;
+    color: #666666;
+}
+
+.sc-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333333;
+    line-height: 1.55;
+    margin-bottom: 0.8rem;
+}
+
+.sc-desc {
+    font-size: 0.85rem;
+    color: #555555;
+    line-height: 1.6;
+    max-height: 3.2em;
+    overflow: hidden;
+    transition: max-height 0.35s ease;
+}
+
+.sc-desc.expanded {
+    max-height: 400px;
+}
+
+.sc-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-top: 1.1rem;
+    flex-wrap: wrap;
+}
+
+.sc-expand-btn {
+    background: none;
+    border: none;
+    color: #666666;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.2s;
+}
+
+.sc-expand-btn:hover {
+    color: #004B87;
+}
+
+.sc-pib-link {
+    margin-left: auto;
+    text-decoration: none;
+    padding: 0.35rem 0.9rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: #ffffff;
+    color: #004B87;
+    border: 1px solid #004B87;
+    transition: all 0.2s ease;
+}
+
+.sc-pib-link:hover {
+    background: #e6f0fa;
+    transform: translateY(-1px);
+}

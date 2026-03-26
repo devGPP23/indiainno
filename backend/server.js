@@ -126,6 +126,7 @@ const voiceRoutes = require('./routes/voice');
 const aiRoutes = require('./routes/ai_routes');
 const smsRoutes = require('./routes/sms');
 const implementationPlanRoutes = require('./routes/implementationPlans');
+const schemesRoutes = require('./routes/schemes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
@@ -134,6 +135,7 @@ app.use('/api/voice', voiceRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/sms', smsRoutes);
 app.use('/api/implementation-plans', implementationPlanRoutes);
+app.use('/api/schemes', schemesRoutes);
 
 // 404 handler for unknown routes
 app.use((req, res) => {
@@ -169,20 +171,20 @@ connectDB().then(() => {
         console.log(`   POST /api/voice/call-me             → Outbound call`);
         console.log(`   POST /api/voice/incoming             → IVR entry`);
         console.log(`   POST /api/voice/recording-complete   → STT → AI → DB`);
-  console.log(` POST /api/voice/test-pipeline → Test pipeline`);
-  console.log(` GET /api/voice/status → Service health`);
-  console.log(`📋 [Implementation Plans]`);
-  console.log(` POST /api/implementation-plans/create/:ticketId`);
-  console.log(` GET  /api/implementation-plans/:ticketId`);
-  console.log(` PUT  /api/implementation-plans/:planId/junior-review`);
-  console.log(` PUT  /api/implementation-plans/:planId/senior-review`);
-  console.log(` PUT  /api/implementation-plans/:planId/level1-approve`);
-  console.log(` PUT  /api/implementation-plans/:planId/start-work`);
-  console.log(` PUT  /api/implementation-plans/:planId/step-progress`);
-  console.log(` PUT  /api/implementation-plans/:planId/verify-step`);
-  console.log(` PUT  /api/implementation-plans/:planId/complete`);
-  console.log(` PUT  /api/implementation-plans/:planId/final-verify`);
-  console.log(`📡 [Provider] ${telephonyAdapter.getActiveProvider() || 'None configured'}`);
+        console.log(` POST /api/voice/test-pipeline → Test pipeline`);
+        console.log(` GET /api/voice/status → Service health`);
+        console.log(`📋 [Implementation Plans]`);
+        console.log(` POST /api/implementation-plans/create/:ticketId`);
+        console.log(` GET  /api/implementation-plans/:ticketId`);
+        console.log(` PUT  /api/implementation-plans/:planId/junior-review`);
+        console.log(` PUT  /api/implementation-plans/:planId/senior-review`);
+        console.log(` PUT  /api/implementation-plans/:planId/level1-approve`);
+        console.log(` PUT  /api/implementation-plans/:planId/start-work`);
+        console.log(` PUT  /api/implementation-plans/:planId/step-progress`);
+        console.log(` PUT  /api/implementation-plans/:planId/verify-step`);
+        console.log(` PUT  /api/implementation-plans/:planId/complete`);
+        console.log(` PUT  /api/implementation-plans/:planId/final-verify`);
+        console.log(`📡 [Provider] ${telephonyAdapter.getActiveProvider() || 'None configured'}`);
         console.log(`☎️  [Helpline] ${telephonyAdapter.getHelplineNumber()}`);
         console.log(`🔗 [Webhook]  ${process.env.WEBHOOK_BASE_URL || 'http://localhost:5000'}\n`);
     });
