@@ -42,11 +42,11 @@ const implementationStepSchema = new mongoose.Schema({
 const approvalHistorySchema = new mongoose.Schema({
   action: { 
     type: String, 
-    enum: ['ai_generated', 'junior_reviewed', 'senior_reviewed', 'approved', 'rejected', 'sent_back', 'work_started', 'progress_updated', 'work_completed', 'verified', 'forwarded', 'comment_added'],
+    enum: ['ai_generated', 'junior_reviewed', 'senior_reviewed', 'approved', 'rejected', 'sent_back', 'work_started', 'progress_updated', 'work_completed', 'verified', 'forwarded', 'comment_added', 'field_updated', 'step_completed', 'step_verified', 'step_rejected', 'send_back', 'level1_approved', 'level2_approved'],
     required: true 
   },
   performedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  performedByRole: { type: String, enum: ['ai', 'junior', 'engineer', 'senior_engineer', 'dept_head', 'officer', 'admin'] },
+  performedByRole: { type: String, enum: ['ai', 'junior', 'engineer', 'senior_engineer', 'dept_head', 'officer', 'admin', 'citizen', 'user'] },
   remarks: { type: String, default: '' },
   timestamp: { type: Date, default: Date.now },
   

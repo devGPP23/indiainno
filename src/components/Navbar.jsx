@@ -3,6 +3,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { getRoleTitle } from "../config/roleConfig";
 import { HiOutlineMenu, HiOutlineX, HiOutlineLogout } from "react-icons/hi";
 import { useState } from "react";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 const NAV_LINKS = {
   citizen: [
@@ -104,6 +105,11 @@ export default function Navbar() {
                             {mode === "urban" ? "🏙️ URBAN" : "🌾 RURAL"}
                         </div>
                     )}
+                    
+                    {/* Language Switcher */}
+                    <div style={{ marginTop: 8 }}>
+                        <LanguageSwitcher inNavbar />
+                    </div>
                 </div>
 
                 <nav style={{ display: "flex", flexDirection: "column", marginTop: 8 }}>

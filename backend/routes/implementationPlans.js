@@ -1197,4 +1197,175 @@ router.post('/regenerate/:ticketId', protect, authorize('junior', 'engineer', 's
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTE: PUT /api/implementation-plans/:planId/update-field
+// Update a single field in the implementation plan
+// ═══════════════════════════════════════════════════════════════════════════
+router.put('/:planId/update-field', protect, authorize('junior', 'engineer', 'senior_engineer', 'dept_head', 'officer', 'admin'), async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const { field, value } = req.body;
+    
+    if (!mongoose.Types.ObjectId.isValid(planId)) {
+      return res.status(400).json({ message: 'Invalid plan ID' });
+    }
+    
+    const plan = await ImplementationPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ message: 'Implementation plan not found' });
+    }
+    
+    // Update the field
+    plan[field] = value;
+    
+    // Add to approval history
+    plan.approvalHistory.push({
+      action: 'field_updated',
+      performedBy: req.user._id,
+      performedByRole: req.user.role,
+      remarks: `Updated ${field}: ${typeof value === 'string' ? value.substring(0, 50) : value}`,
+      timestamp: new Date()
+    });
+    
+    await plan.save();
+    
+    res.json({
+      message: 'Field updated successfully',
+      plan
+    });
+    
+  } catch (err) {
+    console.error('[Update Field Error]', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTE: PUT /api/implementation-plans/:planId/step-update
+// Update a specific step in the implementation plan
+// ═══════════════════════════════════════════════════════════════════════════
+router.put('/:planId/step-update', protect, authorize('junior', 'engineer', 'senior_engineer', 'dept_head', 'officer', 'admin'), async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const { stepNumber, field, value } = req.body;
+    
+    if (!mongoose.Types.ObjectId.isValid(planId)) {
+      return res.status(400).json({ message: 'Invalid plan ID' });
+    }
+    
+    const plan = await ImplementationPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ message: 'Implementation plan not found' });
+    }
+    
+    // Find and update the step
+    const step = plan.steps.find(s => s.stepNumber === stepNumber);
+    if (!step) {
+      return res.status(404).json({ message: 'Step not found' });
+    }
+    
+    // Update the field
+    step[field] = value;
+    
+    // Handle status changes
+    if (field === 'status') {
+      if (value === 'in_progress') {
+        step.startedAt = new Date();
+        plan.approvalHistory.push({
+          action: 'work_started',
+          performedBy: req.user._id,
+          performedByRole: req.user.role,
+          remarks: `Step ${stepNumber} started: ${step.title}`,
+          timestamp: new Date()
+        });
+      } else if (value === 'completed') {
+        step.completedAt = new Date();
+        plan.approvalHistory.push({
+          action: 'step_completed',
+          performedBy: req.user._id,
+          performedByRole: req.user.role,
+          remarks: `Step ${stepNumber} completed: ${step.title}`,
+          timestamp: new Date()
+        });
+      }
+    }
+    
+    // Add remarks if provided
+    if (field === 'juniorRemarks' && value) {
+      step.juniorRemarks = value;
+    }
+    if (field === 'seniorRemarks' && value) {
+      step.seniorVerifiedAt = new Date();
+      step.seniorRemarks = value;
+    }
+    if (field === 'verified') {
+      step.seniorVerifiedAt = new Date();
+      plan.approvalHistory.push({
+        action: value ? 'step_verified' : 'step_rejected',
+        performedBy: req.user._id,
+        performedByRole: req.user.role,
+        remarks: `Step ${stepNumber} ${value ? 'verified' : 'rejected'}: ${step.title}`,
+        timestamp: new Date()
+      });
+    }
+    
+    // Recalculate overall progress
+    const completedSteps = plan.steps.filter(s => s.status === 'completed' || s.status === 'verified').length;
+    plan.overallProgress = Math.round((completedSteps / plan.steps.length) * 100);
+    
+    await plan.save();
+    
+    res.json({
+      message: 'Step updated successfully',
+      plan
+    });
+    
+  } catch (err) {
+    console.error('[Step Update Error]', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROUTE: POST /api/implementation-plans/:planId/comment
+// Add a comment to the implementation plan
+// ═══════════════════════════════════════════════════════════════════════════
+router.post('/:planId/comment', protect, async (req, res) => {
+  try {
+    const { planId } = req.params;
+    const { content } = req.body;
+    
+    if (!mongoose.Types.ObjectId.isValid(planId)) {
+      return res.status(400).json({ message: 'Invalid plan ID' });
+    }
+    
+    const plan = await ImplementationPlan.findById(planId);
+    if (!plan) {
+      return res.status(404).json({ message: 'Implementation plan not found' });
+    }
+    
+    const comment = {
+      author: req.user._id,
+      authorName: req.user.name,
+      authorRole: req.user.role,
+      content: content,
+      timestamp: new Date()
+    };
+    
+    plan.comments = plan.comments || [];
+    plan.comments.push(comment);
+    
+    await plan.save();
+    
+    res.json({
+      message: 'Comment added successfully',
+      comment
+    });
+    
+  } catch (err) {
+    console.error('[Add Comment Error]', err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;
