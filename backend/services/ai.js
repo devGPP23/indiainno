@@ -67,6 +67,7 @@ async function speechToText(audioUrl) {
 /**
  * 1b. Sarvam AI - Speech to Text from Buffer
  * Accepts raw audio buffer for direct processing.
+ * Uses speech-to-text (not translate) for better accuracy with all languages.
  */
 async function speechToTextFromBuffer(audioBuffer, mimeType = 'audio/webm') {
     try {
@@ -79,15 +80,36 @@ async function speechToTextFromBuffer(audioBuffer, mimeType = 'audio/webm') {
             filename: `recording.${ext}`,
             contentType: mimeType
         });
-        form.append('model', 'saaras:v2.5');
+        form.append('model', 'saaras:v3');
+        form.append('language_code', 'unknown');
 
-        const sarvamRes = await axios.post('https://api.sarvam.ai/speech-to-text-translate', form, {
-            headers: {
-                ...form.getHeaders(),
-                'api-subscription-key': SARVAM_API_KEY,
-            },
-            timeout: 30000,
-        });
+        // Try standard STT first (better for English + Indian languages)
+        let sarvamRes;
+        try {
+            sarvamRes = await axios.post('https://api.sarvam.ai/speech-to-text', form, {
+                headers: {
+                    ...form.getHeaders(),
+                    'api-subscription-key': SARVAM_API_KEY,
+                },
+                timeout: 30000,
+            });
+        } catch (sttErr) {
+            // Fallback to translate endpoint if standard STT fails
+            console.warn('[Sarvam] Standard STT failed, trying translate endpoint:', sttErr?.response?.data || sttErr.message);
+            const form2 = new FormData();
+            form2.append('file', audioBuffer, {
+                filename: `recording.${ext}`,
+                contentType: mimeType
+            });
+            form2.append('model', 'saaras:v2.5');
+            sarvamRes = await axios.post('https://api.sarvam.ai/speech-to-text-translate', form2, {
+                headers: {
+                    ...form2.getHeaders(),
+                    'api-subscription-key': SARVAM_API_KEY,
+                },
+                timeout: 30000,
+            });
+        }
 
         console.log("[Sarvam] STT Buffer Output:", sarvamRes.data);
         return {

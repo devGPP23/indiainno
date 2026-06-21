@@ -12,7 +12,7 @@ import MyComplaints from "./pages/user/MyComplaints";
 import CityMap from "./pages/user/CityMap";
 import AnonymousReport from "./pages/user/AnonymousReport";
 import TrackReport from "./pages/user/TrackReport";
-import Schemes from "./pages/Schemes";
+
 
 // Junior (replaces engineer)
 import JuniorDashboard from "./pages/junior/JuniorDashboard";
@@ -82,7 +82,7 @@ export default function App() {
       <Route path="/citizen/map" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><CityMap /></ProtectedRoute>} />
       <Route path="/citizen/anonymous-report" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><AnonymousReport /></ProtectedRoute>} />
       <Route path="/citizen/track-report" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><TrackReport /></ProtectedRoute>} />
-      <Route path="/schemes" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><Schemes /></ProtectedRoute>} />
+
       <Route path="/citizen/plan/:ticketId" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><ImplementationPlanSheet /></ProtectedRoute>} />
       <Route path="/citizen/progress/:planId" element={<ProtectedRoute allowedRoles={["citizen", "user"]}><ProgressSummaryReport /></ProtectedRoute>} />
 

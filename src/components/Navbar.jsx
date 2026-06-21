@@ -19,7 +19,6 @@ const NAV_LINKS = {
         { to: "/citizen/map", label: "City Map", icon: <HiOutlineMap /> },
         { to: "/citizen/anonymous-report", label: "Anti-Corruption", icon: <HiOutlineShieldCheck /> },
         { to: "/citizen/track-report", label: "Track AC Report", icon: <HiOutlineSearchCircle /> },
-        { to: "/schemes", label: "Govt Schemes", icon: <HiOutlineLibrary /> },
     ],
     user: [
         { to: "/citizen", label: "Dashboard", icon: <HiOutlineChartBar /> },
@@ -28,7 +27,6 @@ const NAV_LINKS = {
         { to: "/citizen/map", label: "City Map", icon: <HiOutlineMap /> },
         { to: "/citizen/anonymous-report", label: "Anti-Corruption", icon: <HiOutlineShieldCheck /> },
         { to: "/citizen/track-report", label: "Track AC Report", icon: <HiOutlineSearchCircle /> },
-        { to: "/schemes", label: "Govt Schemes", icon: <HiOutlineLibrary /> },
     ],
     junior: [
         { to: "/junior", label: "Dashboard", icon: <HiOutlineChartBar /> },

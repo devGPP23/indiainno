@@ -11,7 +11,6 @@ export default function UserDashboard() {
     const [stats, setStats] = useState({ total: 0, open: 0, resolved: 0, pending: 0 });
     const [recentComplaints, setRecentComplaints] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [calling, setCalling] = useState(false);
     const fetchedRef = useRef(false);
 
     useEffect(() => {
@@ -46,29 +45,7 @@ export default function UserDashboard() {
         fetchData();
     }, []);
 
-    const handleCallMe = async () => {
-        if (calling) return;
-        setCalling(true);
-        toast.dismiss(); // Clear any existing toasts to prevent flood
-        try {
-            const userPhone = userProfile?.phone?.trim() || "";
-            if (!userPhone) {
-                toast.error("No phone number found in your profile.");
-                setCalling(false);
-                return;
-            }
 
-            const { data } = await api.post('/voice/call-me', {}, { timeout: 20000 });
-            toast.success(data.message || "Call initiated! Your phone will ring shortly.", { duration: 6000 });
-        } catch (err) {
-            const msg =
-                err.response?.data?.message ||
-                err.response?.data?.detail?.RestException?.Message ||
-                "Failed to initiate call. Please try again.";
-            toast.error(msg, { duration: 8000, id: 'call-error' });
-        }
-        setCalling(false);
-    };
 
     const statCards = [
         { label: "Total Complaints", value: stats.total, icon: <HiOutlineClipboardList className="text-2xl text-[#6366f1]" />, color: "from-[#6366f1]/10" },
@@ -86,33 +63,6 @@ export default function UserDashboard() {
                 <Link to="/citizen/complaints" className="btn-secondary">
                     View All Complaints
                 </Link>
-                <button
-                    onClick={handleCallMe}
-                    disabled={calling}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-semibold text-sm transition-all cursor-pointer"
-                    style={{
-                        background: calling ? '#94a3b8' : 'linear-gradient(135deg, #059669, #10b981)',
-                        color: '#fff',
-                        border: 'none',
-                        boxShadow: '0 2px 8px rgba(5,150,105,0.25)',
-                        opacity: calling ? 0.7 : 1,
-                    }}
-                >
-                    {calling ? (
-                        <><div className="spinner w-4 h-4 border-2" /> Connecting...</>
-                    ) : (
-                        <><HiOutlinePhone className="text-lg" /> Contact Authorities</>
-                    )}
-                </button>
-            </div>
-
-            <div className="bg-[#ecfdf5] border border-[#a7f3d0] rounded p-4 mb-8 animate-fadeInUp">
-                <p className="text-[#065f46] text-xs mb-2 flex items-start gap-2">
-                    <HiOutlinePhone className="text-base flex-shrink-0 mt-0.5" /> <span><strong>How it works:</strong> Click "Contact Authorities" and we'll call your registered phone number. Select your language, describe your complaint in any Indian language — our AI will automatically transcribe, classify the department, and register your complaint. It will appear on your dashboard instantly!</span>
-                </p>
-                <p className="text-[#065f46] text-xs flex items-center gap-2">
-                    <HiOutlinePhone className="text-base flex-shrink-0" /> <span><strong>Toll-Free Helpline:</strong> You can also dial <strong style={{ fontSize: '13px', letterSpacing: '0.5px' }}>918047360814</strong> directly from any phone. Our system will call you back and register your complaint automatically.</span>
-                </p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 stagger">

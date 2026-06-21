@@ -18,17 +18,6 @@ process.on('unhandledRejection', (reason) => {
     console.error('[UNHANDLED REJECTION] Server will continue running:', reason);
 });
 
-// Sanitize WEBHOOK_BASE_URL: strip any trailing slash to prevent double-slash in URLs
-if (process.env.WEBHOOK_BASE_URL) {
-    process.env.WEBHOOK_BASE_URL = process.env.WEBHOOK_BASE_URL.replace(/\/+$/, '');
-    console.log(`🔗 WEBHOOK_BASE_URL: ${process.env.WEBHOOK_BASE_URL}`);
-}
-
-// Unified telephony adapter — auto-detects Exotel or Twilio
-const telephonyAdapter = require('./services/telephonyAdapter');
-// Full Exotel pipeline (call mgmt + STT + AI + TTS) — consolidated from old exotelService.js
-const exotelService = require('./services/exotel');
-
 // Ensure public/responses directory exists before any request can hit us
 const responsesDir = path.join(__dirname, 'public', 'responses');
 fs.mkdirSync(responsesDir, { recursive: true });
@@ -79,108 +68,22 @@ app.get('/', (req, res) => {
     });
 });
 
-// Config endpoint to fetch public settings without hardcoding
-app.get('/api/config', (req, res) => {
-    res.json({
-        helplineNumber: telephonyAdapter.getHelplineNumber(),
-        activeProvider: telephonyAdapter.getActiveProvider(),
-        exotelNumber: process.env.EXOTEL_PHONE_NUMBER || 'Not Configured',
-        webhookBase: process.env.WEBHOOK_BASE_URL || 'http://localhost:5000'
-    });
-});
 
-// Webhook status endpoint
-app.get('/api/webhook/status', async (req, res) => {
-    try {
-        const axios = require('axios');
-        const tunnels = await axios.get('http://127.0.0.1:4040/api/tunnels', { timeout: 2000 });
-        const httpsTunnel = tunnels.data.tunnels?.find(t => t.proto === 'https');
-
-        res.json({
-            running: !!httpsTunnel,
-            url: httpsTunnel?.public_url?.replace(/\/+$/, '') || null,
-            tunnels: tunnels.data.tunnels || []
-        });
-    } catch (err) {
-        res.json({
-            running: false,
-            url: null,
-            error: err.message
-        });
-    }
-});
-
-// Manual webhook update endpoint
-app.post('/api/webhook/update', async (req, res) => {
-    try {
-        const { forceUpdateWebhooks } = require('./services/ngrokManager');
-        const results = await forceUpdateWebhooks();
-
-        if (results.error) {
-            return res.status(500).json(results);
-        }
-
-        res.json({
-            success: true,
-            ...results
-        });
-    } catch (err) {
-        res.status(500).json({
-            error: err.message
-        });
-    }
-});
-
-// ── Backward-compatible /initiate-call alias ──
-// Frontend may call POST /initiate-call directly; forward to exotel service.
-app.post('/initiate-call', async (req, res) => {
-    try {
-        const userPhoneNumber = req.body?.number;
-        if (!userPhoneNumber) {
-            return res.status(400).json({ message: 'Phone number is required in body as { number }' });
-        }
-
-        const call = await exotelService.initiateCall(userPhoneNumber);
-        return res.json({
-            success: true,
-            message: 'Call initiated successfully',
-            callSid: call.sid,
-            from: call.from,
-            to: call.to,
-            url: call.url
-        });
-    } catch (error) {
-        const msg = error?.response?.data?.RestException?.Message ||
-            error?.response?.data?.message || error.message;
-        console.error('[Exotel Initiate Call Error]', error?.response?.data || error.message);
-        return res.status(500).json({
-            success: false,
-            message: msg || 'Failed to initiate call',
-            detail: error?.response?.data || error.message
-        });
-    }
-});
 
 // Routes
 const authRoutes = require('./routes/auth');
 const ticketRoutes = require('./routes/tickets');
 const userRoutes = require('./routes/users');
-const voiceRoutes = require('./routes/voice');
 const aiRoutes = require('./routes/ai_routes');
-const smsRoutes = require('./routes/sms');
 const implementationPlanRoutes = require('./routes/implementationPlans');
 const anticorruptionRoutes = require('./routes/anticorruption');
-const schemesRoutes = require('./routes/schemes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/voice', voiceRoutes);
 app.use('/api/ai', aiRoutes);
-app.use('/api/sms', smsRoutes);
 app.use('/api/implementation-plans', implementationPlanRoutes);
 app.use('/api/anticorruption', anticorruptionRoutes);
-app.use('/api/schemes', schemesRoutes);
 
 // 404 handler for unknown routes
 app.use((req, res) => {
@@ -196,16 +99,10 @@ app.use((err, req, res, _next) => {
 // CronService for automated SLA deductions
 const { startCronService } = require('./services/cronService');
 
-// Ngrok Webhook Manager - auto-updates webhooks when URL changes
-const { startNgrokManager } = require('./services/ngrokManager');
-
 // Connect DB then start server
 const PORT = process.env.PORT || 5000;
 connectDB().then(async () => {
     startCronService();
-
-    // Start Ngrok Webhook Manager
-    const ngrokManager = await startNgrokManager();
 
     app.listen(PORT, () => {
         console.log(`\n✅ [CivicSync] Server running on http://localhost:${PORT}`);
@@ -219,28 +116,10 @@ connectDB().then(async () => {
         console.log(`   PUT  /api/tickets/master/:id`);
         console.log(`   GET  /api/users`);
         console.log(`   PUT  /api/users/:id`);
-        console.log(`📞 [Voice Endpoints]`);
-        console.log(`   POST /api/voice/call-me             → Outbound call`);
-        console.log(`   POST /api/voice/incoming             → IVR entry`);
-        console.log(`   POST /api/voice/recording-complete   → STT → AI → DB`);
-        console.log(` POST /api/voice/test-pipeline → Test pipeline`);
-        console.log(` GET /api/voice/status → Service health`);
         console.log(`📋 [Implementation Plans]`);
         console.log(` POST /api/implementation-plans/create/:ticketId`);
         console.log(` GET  /api/implementation-plans/:ticketId`);
-        console.log(` PUT  /api/implementation-plans/:planId/junior-review`);
-        console.log(` PUT  /api/implementation-plans/:planId/senior-review`);
-        console.log(` PUT  /api/implementation-plans/:planId/level1-approve`);
-        console.log(` PUT  /api/implementation-plans/:planId/start-work`);
-        console.log(` PUT  /api/implementation-plans/:planId/step-progress`);
-        console.log(` PUT  /api/implementation-plans/:planId/verify-step`);
-        console.log(` PUT  /api/implementation-plans/:planId/complete`);
-        console.log(` PUT  /api/implementation-plans/:planId/final-verify`);
-        console.log(`📡 [Provider] ${telephonyAdapter.getActiveProvider() || 'None configured'}`);
-        console.log(`☎️  [Helpline] ${telephonyAdapter.getHelplineNumber()}`);
-        console.log(`🔗 [Webhook]  ${process.env.WEBHOOK_BASE_URL || 'http://localhost:5000'}`);
-        console.log(`🌐 [Ngrok]   Auto-updates webhooks every 15s`);
-        console.log(`📌 [Endpoints] GET /api/webhook/status → Check ngrok`);
-        console.log(`              POST /api/webhook/update → Force update\n`);
+        console.log(`🔒 [Anti-corruption] /api/anticorruption/*`);
+        console.log(`🤖 [AI] /api/ai/*\n`);
     });
 });

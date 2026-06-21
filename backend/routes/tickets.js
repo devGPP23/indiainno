@@ -433,14 +433,13 @@ router.get('/master', protect, async (req, res) => {
         const userCity = (req.user.city || '').trim();
         const userDistrict = (req.user.district || '').trim();
 
-        // Location filtering
+        // Location filtering (case-insensitive to prevent mismatch between citizen/officer city values)
         if (req.user.mode === 'rural' && userDistrict) {
             query.city = { $regex: userDistrict, $options: 'i' };
         } else if (userCity) {
-            query.city = userCity;
-        } else if (['officer', 'admin', 'dept_head', 'junior', 'engineer'].includes(userRole)) {
-            return res.json([]);
+            query.city = { $regex: `^${userCity}$`, $options: 'i' };
         }
+        // If no city set, officer/admin sees ALL tickets (no empty result)
 
         // Role-based filtering
         if (['junior', 'engineer'].includes(userRole) && req.user.department) {
